@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS seismic_events (id INTEGER PRIMARY KEY AUTOINCREMENT, magnitude REAL, depth REAL, lat REAL, lng REAL, detected_at TEXT, processed_at TEXT);
+CREATE TABLE IF NOT EXISTS damage_zones (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER, cell_id TEXT, lat REAL, lng REAL, damage_prob REAL, soil_type TEXT, created_at TEXT);
+CREATE TABLE IF NOT EXISTS fire_hotspots (id INTEGER PRIMARY KEY AUTOINCREMENT, lat REAL, lng REAL, frp REAL, confidence REAL, detected_at TEXT);
+CREATE TABLE IF NOT EXISTS ember_risk_zones (id INTEGER PRIMARY KEY AUTOINCREMENT, hotspot_id INTEGER, lat REAL, lng REAL, probability REAL, forecast_at TEXT);
+CREATE TABLE IF NOT EXISTS suppression_crews (id INTEGER PRIMARY KEY AUTOINCREMENT, crew_id TEXT UNIQUE, lat REAL, lng REAL, status TEXT, capacity INTEGER, assigned_zone_id INTEGER, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS shelters (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, lat REAL, lng REAL, occupancy INTEGER, capacity INTEGER, damage_zone_id INTEGER);
+CREATE TABLE IF NOT EXISTS hospitals (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, lat REAL, lng REAL, capacity INTEGER, alert_level TEXT, damage_zone_id INTEGER);
+CREATE TABLE IF NOT EXISTS evacuation_routes (id INTEGER PRIMARY KEY AUTOINCREMENT, origin_zone_id INTEGER, dest_zone_id INTEGER, status TEXT);
+CREATE TABLE IF NOT EXISTS action_cards (id INTEGER PRIMARY KEY AUTOINCREMENT, action_type TEXT, resource_id TEXT, zone_id TEXT, confidence REAL, rationale TEXT, status TEXT, created_at TEXT);
+CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, started_at TEXT, mute_state INTEGER);

@@ -1,0 +1,168 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-mono: 'Fira Code';
+  --font-sans: 'Fira Sans';
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background-color: #000000;
+  color: #ffffff; /* enforced */
+}
+
+body {
+  font-family: var(--font-sans), 'Fira Sans', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #111111;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333333;
+}
+
+/* Leaflet overrides */
+.leaflet-container {
+  background: #000000 !important;
+  font-family: var(--font-sans) !important;
+}
+.leaflet-control-attribution {
+  background: rgba(0,0,0,0.8) !important;
+  color: #555555 !important;
+  font-size: 10px !important;
+}
+.leaflet-control-zoom a {
+  background: #111111 !important;
+  color: #aaaaaa !important;
+  border-color: #2a2a2a !important;
+}
+.leaflet-control-zoom a:hover {
+  background: #1a1a1a !important;
+}
+.leaflet-popup-content-wrapper {
+  background: #111111 !important;
+  border: 1px solid #2a2a2a !important;
+  border-radius: 6px !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.6) !important;
+}
+.leaflet-popup-tip {
+  background: #111111 !important;
+}
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+}
+.leaflet-tooltip {
+  background: #111111 !important;
+  border: 1px solid #2a2a2a !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+}
+
+/* Crew marker — transition applies to the Leaflet icon container
+   so setLatLng() animates smoothly instead of teleporting */
+.crew-marker-icon {
+  transition: transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Hotspot marker — inner div scales in from 0 when it first appears */
+@keyframes hotspot-pop {
+  0%   { transform: scale(0);   opacity: 0; }
+  60%  { transform: scale(1.25); opacity: 0.9; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+.hotspot-icon > div {
+  animation: hotspot-pop 0.45s ease-out forwards;
+}
+
+/* Damage cell — grows from a point with a slight elastic overshoot */
+@keyframes damage-grow {
+  0%   { transform: scale(0);    opacity: 0; }
+  65%  { transform: scale(1.2);  opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.damage-cell-icon > div {
+  animation: damage-grow 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Shelter/hospital markers */
+.infra-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.infra-marker:hover {
+  transform: scale(1.15);
+}
+
+/* Spinner animation for simulate button */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Seismic wave animation for simulation overlay */
+@keyframes seismic-wave {
+  0%   { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Bounce animation for simulation overlay dots */
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-5px); }
+}
+
+/* Slide in animation for action cards */
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Seismic ring animation for epicenter marker */
+@keyframes seismic-ring {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(1);  opacity: 0; }
+}
+
+/* Simulate Crisis button glow pulse */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(239,68,68,0.3); }
+  50%       { box-shadow: 0 0 12px rgba(239,68,68,0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

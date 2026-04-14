@@ -1,0 +1,343 @@
+{
+  "actions": [
+    {
+      "name": "AcknowledgeAlert",
+      "description": "Acknowledges an open Alert, marking it as seen and assigning ownership to the acknowledging user. Updates the alert status to 'ack', records the timestamp, and sets the assigned_to field.",
+      "input_schema": {
+        "properties": {
+          "alert_id": {
+            "type": "string",
+            "description": "The primary key of the Alert to acknowledge."
+          },
+          "acknowledged_by": {
+            "type": "string",
+            "description": "Username or user ID of the person acknowledging the alert."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional free-text notes describing the acknowledgement context or initial triage findings."
+          }
+        },
+        "required": ["alert_id", "acknowledged_by"]
+      },
+      "preconditions": [
+        {
+          "condition": "Alert with alert_id exists in the ontology",
+          "error_if_false": "Alert not found: no Alert object exists with the provided alert_id."
+        },
+        {
+          "condition": "Alert.status == 'open'",
+          "error_if_false": "Alert cannot be acknowledged: current status is not 'open'. Only open alerts may be acknowledged."
+        }
+      ],
+      "postconditions": [
+        {
+          "guarantee": "Alert.status is set to 'ack'."
+        },
+        {
+          "guarantee": "Alert.acknowledged_at is set to the current UTC timestamp at the time of action execution."
+        },
+        {
+          "guarantee": "Alert.assigned_to is set to the value of acknowledged_by."
+        }
+      ],
+      "audit_log_entry": {
+        "action": "alert.acknowledged",
+        "fields": {
+          "alert_id": "input.alert_id",
+          "acknowledged_by": "input.acknowledged_by",
+          "notes": "input.notes",
+          "timestamp": "now()"
+        }
+      },
+      "rollback": {
+        "steps": [
+          "Set Alert.status back to 'open'.",
+          "Clear Alert.acknowledged_at by setting it to null.",
+          "Clear Alert.assigned_to by setting it to null."
+        ]
+      }
+    },
+    {
+      "name": "CreateIncident",
+      "description": "Creates a new Incident record grouping one or more alerts into an operational event. Links any provided Alerts to the new Incident, sets initial status to 'open', and returns the new incident_id.",
+      "input_schema": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "A short, descriptive title for the incident."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["P1", "P2", "P3", "P4"],
+            "description": "Severity level of the incident. P1 is most critical."
+          },
+          "affected_systems": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of system names or identifiers impacted by this incident."
+          },
+          "alert_ids": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional list of Alert IDs to link to this incident as triggering alerts."
+          },
+          "created_by": {
+            "type": "string",
+            "description": "Username or user ID of the person creating the incident."
+          }
+        },
+        "required": ["title", "severity", "affected_systems", "created_by"]
+      },
+      "preconditions": [
+        {
+          "condition": "title is a non-empty string",
+          "error_if_false": "Incident title must be a non-empty string."
+        },
+        {
+          "condition": "affected_systems is a non-empty array",
+          "error_if_false": "affected_systems must contain at least one system identifier."
+        },
+        {
+          "condition": "severity is one of ['P1', 'P2', 'P3', 'P4']",
+          "error_if_false": "severity must be a valid enum value: P1, P2, P3, or P4."
+        }
+      ],
+      "postconditions": [
+        {
+          "guarantee": "A new Incident object is created with status='open' and the provided title, severity, and affected_systems."
+        },
+        {
+          "guarantee": "Each Alert in alert_ids (if provided) is linked to the new Incident via the alert_triggers_incident link type."
+        },
+        {
+          "guarantee": "The newly generated incident_id is returned to the caller."
+        }
+      ],
+      "audit_log_entry": {
+        "action": "incident.created",
+        "fields": {
+          "incident_id": "generated.incident_id",
+          "title": "input.title",
+          "severity": "input.severity",
+          "created_by": "input.created_by",
+          "alert_count": "len(input.alert_ids) if input.alert_ids else 0",
+          "timestamp": "now()"
+        }
+      },
+      "rollback": {
+        "steps": [
+          "Delete the newly created Incident record from the ontology.",
+          "Remove all alert_triggers_incident links between the Alerts in alert_ids and the deleted Incident.",
+          "Restore each linked Alert's status to its pre-action value if it was modified during incident creation."
+        ]
+      }
+    },
+    {
+      "name": "PromoteModel",
+      "description": "Promotes a ModelVersion to a higher lifecycle status (training→staging or staging→production). Validates evaluation scores and state transition rules. Archives any existing production model when promoting to production.",
+      "input_schema": {
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "description": "The primary key of the ModelVersion to promote."
+          },
+          "target_status": {
+            "type": "string",
+            "enum": ["staging", "production"],
+            "description": "The target lifecycle status for this promotion."
+          },
+          "promoted_by": {
+            "type": "string",
+            "description": "Username or user ID of the person authorizing the promotion."
+          },
+          "justification": {
+            "type": "string",
+            "description": "Mandatory written justification describing why the model is ready for promotion."
+          }
+        },
+        "required": ["model_id", "target_status", "promoted_by", "justification"]
+      },
+      "preconditions": [
+        {
+          "condition": "ModelVersion with model_id exists in the ontology",
+          "error_if_false": "ModelVersion not found: no ModelVersion object exists with the provided model_id."
+        },
+        {
+          "condition": "State transition is valid: current status must be 'training' when promoting to 'staging', or 'staging' when promoting to 'production'",
+          "error_if_false": "Invalid state transition: model can only be promoted from training→staging or staging→production."
+        },
+        {
+          "condition": "At least one EvaluationResult linked to this model_id exists in the ontology",
+          "error_if_false": "Promotion blocked: no EvaluationResults found for this ModelVersion. At least one evaluation must be completed before promotion."
+        },
+        {
+          "condition": "All linked EvaluationResult scores meet the minimum threshold defined for the target_status",
+          "error_if_false": "Promotion blocked: one or more evaluation scores do not meet the required threshold for the target status."
+        }
+      ],
+      "postconditions": [
+        {
+          "guarantee": "ModelVersion.status is set to target_status."
+        },
+        {
+          "guarantee": "ModelVersion.promoted_at is set to the current UTC timestamp."
+        },
+        {
+          "guarantee": "If target_status is 'production', any existing ModelVersion with status='production' for the same base_architecture is set to status='archived'."
+        }
+      ],
+      "audit_log_entry": {
+        "action": "model.promoted",
+        "fields": {
+          "model_id": "input.model_id",
+          "from_status": "pre_action.ModelVersion.status",
+          "to_status": "input.target_status",
+          "promoted_by": "input.promoted_by",
+          "justification": "input.justification",
+          "timestamp": "now()"
+        }
+      },
+      "rollback": {
+        "steps": [
+          "Restore ModelVersion.status to its pre-action value.",
+          "Clear ModelVersion.promoted_at by setting it to null.",
+          "If a previously production model was archived during this action, restore its status back to 'production'."
+        ]
+      }
+    },
+    {
+      "name": "TriggerPipelineRun",
+      "description": "Triggers an immediate execution of an active DataPipeline. Validates the pipeline is not already running and optionally accepts a config override as JSON. Returns the new run_id for tracking.",
+      "input_schema": {
+        "properties": {
+          "pipeline_id": {
+            "type": "string",
+            "description": "The primary key of the DataPipeline to trigger."
+          },
+          "triggered_by": {
+            "type": "string",
+            "description": "Username or user ID of the person triggering the pipeline run."
+          },
+          "override_config_json": {
+            "type": "string",
+            "description": "Optional JSON string with configuration overrides that supersede the pipeline's default config for this run only."
+          }
+        },
+        "required": ["pipeline_id", "triggered_by"]
+      },
+      "preconditions": [
+        {
+          "condition": "DataPipeline with pipeline_id exists in the ontology",
+          "error_if_false": "DataPipeline not found: no DataPipeline object exists with the provided pipeline_id."
+        },
+        {
+          "condition": "DataPipeline.status == 'active'",
+          "error_if_false": "Pipeline cannot be triggered: current status is not 'active'. Only active pipelines may be triggered."
+        },
+        {
+          "condition": "DataPipeline.last_run_status != 'running'",
+          "error_if_false": "Pipeline cannot be triggered: a run is already in progress (last_run_status is 'running')."
+        }
+      ],
+      "postconditions": [
+        {
+          "guarantee": "DataPipeline.last_run_ts is set to the current UTC timestamp."
+        },
+        {
+          "guarantee": "DataPipeline.last_run_status is set to 'running'."
+        },
+        {
+          "guarantee": "A new run_id is generated and returned to the caller for tracking the pipeline execution."
+        }
+      ],
+      "audit_log_entry": {
+        "action": "pipeline.triggered",
+        "fields": {
+          "pipeline_id": "input.pipeline_id",
+          "triggered_by": "input.triggered_by",
+          "override_config_json": "input.override_config_json",
+          "run_id": "generated.run_id",
+          "timestamp": "now()"
+        }
+      },
+      "rollback": {
+        "steps": [
+          "Set DataPipeline.last_run_status back to its pre-action value.",
+          "Restore DataPipeline.last_run_ts to its pre-action value.",
+          "Cancel any downstream jobs or compute tasks that were dispatched as part of this triggered run."
+        ]
+      }
+    },
+    {
+      "name": "FlagDataQualityIssue",
+      "description": "Flags a data quality problem on a Dataset by creating or updating a DataQualityReport. Increments the anomaly count, records the issue details, and triggers an Alert if severity is critical.",
+      "input_schema": {
+        "properties": {
+          "dataset_rid": {
+            "type": "string",
+            "description": "The primary key of the Dataset with the quality issue."
+          },
+          "issue_type": {
+            "type": "string",
+            "enum": ["completeness", "uniqueness", "validity", "anomaly"],
+            "description": "The category of data quality issue being reported."
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of the specific quality issue observed."
+          },
+          "flagged_by": {
+            "type": "string",
+            "description": "Username or user ID of the person or system flagging the issue."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Severity level of the data quality issue. 'critical' issues automatically trigger an Alert."
+          }
+        },
+        "required": ["dataset_rid", "issue_type", "description", "flagged_by", "severity"]
+      },
+      "preconditions": [
+        {
+          "condition": "Dataset with dataset_rid exists in the ontology",
+          "error_if_false": "Dataset not found: no Dataset object exists with the provided dataset_rid."
+        },
+        {
+          "condition": "issue_type is one of ['completeness', 'uniqueness', 'validity', 'anomaly']",
+          "error_if_false": "issue_type must be a valid enum value: completeness, uniqueness, validity, or anomaly."
+        }
+      ],
+      "postconditions": [
+        {
+          "guarantee": "A DataQualityReport is created for the dataset_rid if one does not already exist for the current reporting period; if one exists, its anomaly_count is incremented by 1 and issues_json is updated with the new issue entry."
+        },
+        {
+          "guarantee": "Dataset.last_updated_at is set to the current UTC timestamp."
+        },
+        {
+          "guarantee": "If severity is 'critical', a new Alert object is created with severity='P1', status='open', source_system='data-quality', and a raw_payload_json summarizing the issue, and this Alert is linked to the Dataset via the audit trail."
+        }
+      ],
+      "audit_log_entry": {
+        "action": "dataset.quality_flagged",
+        "fields": {
+          "dataset_rid": "input.dataset_rid",
+          "issue_type": "input.issue_type",
+          "severity": "input.severity",
+          "flagged_by": "input.flagged_by",
+          "report_id": "generated_or_updated.report_id",
+          "timestamp": "now()"
+        }
+      },
+      "rollback": {
+        "steps": [
+          "If a new DataQualityReport was created, delete it. If an existing report was updated, decrement anomaly_count by 1 and remove the issue entry from issues_json.",
+          "Restore Dataset.last_updated_at to its pre-action value.",
+          "If a critical Alert was created during this action, cancel and delete that Alert object."
+        ]
+      }
+    }
+  ]
+}

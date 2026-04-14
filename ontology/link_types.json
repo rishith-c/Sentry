@@ -1,0 +1,130 @@
+{
+  "link_types": [
+    {
+      "link_type_id": "compute_node_hosts_gpu_device",
+      "source_object_type": "ComputeNode",
+      "target_object_type": "GPUDevice",
+      "cardinality": "ONE_TO_MANY",
+      "forward": {
+        "link_name": "hosts",
+        "description": "A ComputeNode hosts one or more GPUDevice instances physically installed in it."
+      },
+      "reverse": {
+        "link_name": "hosted_by",
+        "description": "A GPUDevice is hosted by the ComputeNode in which it is physically installed."
+      }
+    },
+    {
+      "link_type_id": "model_version_trained_on_dataset",
+      "source_object_type": "ModelVersion",
+      "target_object_type": "Dataset",
+      "cardinality": "MANY_TO_MANY",
+      "forward": {
+        "link_name": "trained_on",
+        "description": "A ModelVersion was trained on one or more Datasets used as training data."
+      },
+      "reverse": {
+        "link_name": "trains",
+        "description": "A Dataset trains one or more ModelVersions that consumed it during training."
+      }
+    },
+    {
+      "link_type_id": "training_run_produces_model_version",
+      "source_object_type": "TrainingRun",
+      "target_object_type": "ModelVersion",
+      "cardinality": "ONE_TO_ONE",
+      "forward": {
+        "link_name": "produces",
+        "description": "A TrainingRun produces exactly one ModelVersion as its output artifact."
+      },
+      "reverse": {
+        "link_name": "produced_by",
+        "description": "A ModelVersion was produced by exactly one TrainingRun that created it."
+      }
+    },
+    {
+      "link_type_id": "training_run_runs_on_compute_node",
+      "source_object_type": "TrainingRun",
+      "target_object_type": "ComputeNode",
+      "cardinality": "MANY_TO_MANY",
+      "forward": {
+        "link_name": "runs_on",
+        "description": "A TrainingRun runs on one or more ComputeNodes that provide GPU compute resources."
+      },
+      "reverse": {
+        "link_name": "runs",
+        "description": "A ComputeNode runs one or more TrainingRuns that execute on its GPU resources."
+      }
+    },
+    {
+      "link_type_id": "alert_triggers_incident",
+      "source_object_type": "Alert",
+      "target_object_type": "Incident",
+      "cardinality": "MANY_TO_ONE",
+      "forward": {
+        "link_name": "triggers",
+        "description": "An Alert triggers an Incident that groups related alerts into a single operational event."
+      },
+      "reverse": {
+        "link_name": "triggered_by",
+        "description": "An Incident is triggered by one or more Alerts that collectively identified the problem."
+      }
+    },
+    {
+      "link_type_id": "incident_affects_compute_node",
+      "source_object_type": "Incident",
+      "target_object_type": "ComputeNode",
+      "cardinality": "MANY_TO_MANY",
+      "forward": {
+        "link_name": "affects",
+        "description": "An Incident affects one or more ComputeNodes whose availability or health is impacted."
+      },
+      "reverse": {
+        "link_name": "affected_by",
+        "description": "A ComputeNode is affected by one or more Incidents that impact its normal operation."
+      }
+    },
+    {
+      "link_type_id": "evaluation_result_evaluates_model_version",
+      "source_object_type": "EvaluationResult",
+      "target_object_type": "ModelVersion",
+      "cardinality": "MANY_TO_ONE",
+      "forward": {
+        "link_name": "evaluates",
+        "description": "An EvaluationResult evaluates a specific ModelVersion on a benchmark."
+      },
+      "reverse": {
+        "link_name": "evaluated_by",
+        "description": "A ModelVersion is evaluated by one or more EvaluationResults across different benchmarks."
+      }
+    },
+    {
+      "link_type_id": "data_pipeline_produces_dataset",
+      "source_object_type": "DataPipeline",
+      "target_object_type": "Dataset",
+      "cardinality": "ONE_TO_MANY",
+      "forward": {
+        "link_name": "produces",
+        "description": "A DataPipeline produces one or more Datasets as its primary output artifacts."
+      },
+      "reverse": {
+        "link_name": "produced_by",
+        "description": "A Dataset is produced by the DataPipeline that generated or populated it."
+      }
+    },
+    {
+      "link_type_id": "data_pipeline_consumes_dataset",
+      "source_object_type": "DataPipeline",
+      "target_object_type": "Dataset",
+      "cardinality": "MANY_TO_MANY",
+      "forward": {
+        "link_name": "consumes",
+        "description": "A DataPipeline consumes one or more Datasets as input data sources for its transformations."
+      },
+      "reverse": {
+        "link_name": "consumed_by",
+        "description": "A Dataset is consumed by one or more DataPipelines that read it as an input source."
+      }
+    }
+  ]
+}
